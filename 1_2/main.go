@@ -26,6 +26,7 @@ func main() {
 			if err == io.EOF {
 				break
 			}
+			// should have handled errors here
 		}
 
 		fuel := calculateFuelRequirements(mass)
