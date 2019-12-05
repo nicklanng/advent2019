@@ -322,5 +322,5 @@ func (c *Computer) parseOperandModes(memLoc string) (byte, error) {
 }
 
 func (c Computer) isBitSet(modes byte, bit byte) bool {
-	return modes&(1<<bit) == 1<<bit
+	return modes & (1<<bit) == 1<<bit
 }
