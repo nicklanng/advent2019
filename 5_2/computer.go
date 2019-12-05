@@ -9,15 +9,15 @@ import (
 )
 
 const (
-	ADD = 1
-	MUL = 2
-	RIN = 3
-	PRN = 4
-	JIT = 5
-	JIF = 6
-	LES = 7
-	EQL = 8
-	BRK = 99
+	ADD = "01"
+	MUL = "02"
+	RIN = "03"
+	PRN = "04"
+	JIT = "05"
+	JIF = "06"
+	LES = "07"
+	EQL = "08"
+	BRK = "99"
 )
 
 var (
@@ -53,10 +53,7 @@ func (c *Computer) Run() (err error) {
 	var i int
 	for {
 		memLoc := c.PadMemory(c.memory[i], 2)
-		opCode, err := strconv.Atoi(memLoc[len(memLoc)-2:])
-		if err != nil {
-			return ErrSyntaxError
-		}
+		opCode := memLoc[len(memLoc)-2:]
 
 		switch opCode {
 		case ADD:
