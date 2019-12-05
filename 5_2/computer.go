@@ -21,7 +21,6 @@ const (
 )
 
 var (
-	ErrPrematureTermination = errors.New("program exited prematurely")
 	ErrSyntaxError = errors.New("syntax error")
 	ErrInvalidInput = errors.New("invalid input")
 	ErrInvalidOpCode = errors.New("invalid opcode")
@@ -262,9 +261,8 @@ func (c *Computer) Run() (err error) {
 			return ErrInvalidOpCode
 		}
 	}
-
-	return ErrPrematureTermination
 }
+
 func (c *Computer) PadMemory(str string, l int) string {
 	if len(str) < l {
 		return strings.Repeat("0", l - len(str))+str
