@@ -13,10 +13,11 @@ const (
 	MUL = 2
 	RIN = 3
 	PRN = 4
+	JIT = 5
+	JIF = 6
+	LES = 7
+	EQL = 8
 	BRK = 99
-
-	Position  = '0'
-	Immediate = '1'
 )
 
 var (
@@ -35,8 +36,13 @@ func (c *Computer) Load(program []string) {
 	copy(c.memory[:], program)
 }
 
-func (c *Computer) Run() error {
+func (c *Computer) Run() (err error) {
 	defer func() {
+		if err != nil {
+			fmt.Println(c.currentInstruction)
+			debug.PrintStack()
+			fmt.Println(c.memory)
+		}
 		if r := recover(); r != nil {
 			fmt.Println(r)
 			fmt.Println(c.currentInstruction)
@@ -55,49 +61,58 @@ func (c *Computer) Run() error {
 
 		switch opCode {
 		case ADD:
-			c.currentInstruction = strings.Join(c.memory[i:i+4],",")
+			length := 4
+			c.currentInstruction = strings.Join(c.memory[i:i+length],",")
 
-			modes := c.PadMemory(memLoc[:len(memLoc)-2], 3)
-
-			operand1, err := c.ReadOperand(i+1, modes[2])
-			if err != nil {
-				return err
-			}
-			operand2, err := c.ReadOperand(i+2, modes[1])
+			modes, err := c.parseOperandModes(memLoc)
 			if err != nil {
 				return err
 			}
 
-			if err := c.WritePosition(i+3, fmt.Sprintf("%d", operand1 + operand2)); err != nil {
+			operand1, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
+			if err != nil {
+				return err
+			}
+			operand2, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
+			if err != nil {
+				return err
+			}
+
+			if err := c.WritePosition(i+3, fmt.Sprintf("%d", operand1+operand2)); err != nil {
 				return ErrSyntaxError
 			}
 
-			i += 4
+			i += length
 			continue
 
 		case MUL:
-			c.currentInstruction = strings.Join(c.memory[i:i+4],",")
+			length := 4
+			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
 
-			modes := c.PadMemory(memLoc[:len(memLoc)-2], 3)
-
-			operand1, err := c.ReadOperand(i+1, modes[2])
-			if err != nil {
-				return err
-			}
-			operand2, err := c.ReadOperand(i+2, modes[1])
+			modes, err := c.parseOperandModes(memLoc)
 			if err != nil {
 				return err
 			}
 
-			if err := c.WritePosition(i+3, fmt.Sprintf("%d", operand1 * operand2)); err != nil {
+			operand1, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
+			if err != nil {
+				return err
+			}
+			operand2, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
+			if err != nil {
+				return err
+			}
+
+			if err := c.WritePosition(i+3, fmt.Sprintf("%d", operand1*operand2)); err != nil {
 				return ErrSyntaxError
 			}
 
-			i += 4
+			i += length
 			continue
 
 		case RIN:
-			c.currentInstruction = strings.Join(c.memory[i:i+2],",")
+			length := 2
+			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
 
 			fmt.Print("> ")
 
@@ -106,23 +121,138 @@ func (c *Computer) Run() error {
 				return ErrInvalidInput
 			}
 
-			if err := c.WritePosition(i+3, fmt.Sprintf("%d", val)); err != nil {
+			if err := c.WritePosition(i+1, fmt.Sprintf("%d", val)); err != nil {
 				return ErrSyntaxError
 			}
 
-			i += 2
+			i += length
 			continue
 
 		case PRN:
-			c.currentInstruction = strings.Join(c.memory[i:i+2],",")
+			length := 2
+			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
 
-			val, err := c.ReadPosition(i+1)
+			val, err := c.ReadPosition(i + 1)
 			if err != nil {
 				return err
 			}
 			fmt.Println(val)
 
-			i += 2
+			i += length
+			continue
+
+		case JIT:
+			length := 3
+			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+
+			modes, err := c.parseOperandModes(memLoc)
+			if err != nil {
+				return err
+			}
+
+			comp, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
+			if err != nil {
+				return err
+			}
+
+			if comp != 0 {
+				ptr, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
+				if err != nil {
+					return err
+				}
+				i = ptr
+				continue
+			}
+
+			i += length
+			continue
+
+		case JIF:
+			length := 3
+			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+
+			modes, err := c.parseOperandModes(memLoc)
+			if err != nil {
+				return err
+			}
+
+			comp, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
+			if err != nil {
+				return err
+			}
+
+			if comp == 0 {
+				ptr, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
+				if err != nil {
+					return err
+				}
+				i = ptr
+				continue
+			}
+
+			i += length
+			continue
+
+		case LES:
+			length := 4
+			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+
+			modes, err := c.parseOperandModes(memLoc)
+			if err != nil {
+				return err
+			}
+
+			operand1, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
+			if err != nil {
+				return err
+			}
+			operand2, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
+			if err != nil {
+				return err
+			}
+
+			if operand1 < operand2 {
+				if err := c.WritePosition(i+3, "1"); err != nil {
+					return ErrSyntaxError
+				}
+			} else {
+				if err := c.WritePosition(i+3, "0"); err != nil {
+					return ErrSyntaxError
+				}
+			}
+
+			i += length
+			continue
+
+		case EQL:
+			length := 4
+			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+
+			modes, err := c.parseOperandModes(memLoc)
+			if err != nil {
+				return err
+			}
+
+			operand1, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
+			if err != nil {
+				return err
+			}
+			operand2, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
+			if err != nil {
+				return err
+			}
+
+			if operand1 == operand2 {
+				if err := c.WritePosition(i+3, "1"); err != nil {
+					return ErrSyntaxError
+				}
+			} else {
+				if err := c.WritePosition(i+3, "0"); err != nil {
+					return ErrSyntaxError
+				}
+			}
+
+			i += length
 			continue
 
 		case BRK:
@@ -135,7 +265,6 @@ func (c *Computer) Run() error {
 
 	return ErrPrematureTermination
 }
-
 func (c *Computer) PadMemory(str string, l int) string {
 	if len(str) < l {
 		return strings.Repeat("0", l - len(str))+str
@@ -143,21 +272,16 @@ func (c *Computer) PadMemory(str string, l int) string {
 	return str
 }
 
-func (c *Computer) ReadOperand(i int, mode byte) (int, error) {
+func (c *Computer) ReadOperand(i int, immediate bool) (int, error) {
 	var (
 		val int
 		err error
 	)
 
-	switch mode {
-	case Position:
-		val, err = c.ReadPosition(i)
-		break
-	case Immediate:
+	if immediate{
 		val, err = c.ReadImmediate(i)
-		break
-	default:
-		return 0, ErrSyntaxError
+	} else {
+		val, err = c.ReadPosition(i)
 	}
 
 	if err != nil {
@@ -186,4 +310,22 @@ func (c *Computer) WritePosition(pos int, val string) error {
 	}
 	c.memory[ptr] = val
 	return nil
+}
+
+func (c *Computer) parseOperandModes(memLoc string) (byte, error) {
+	subString := memLoc[:len(memLoc) - 2]
+	if len(subString) == 0 {
+		return 0, nil
+	}
+
+	m, err := strconv.ParseInt(subString, 2, 8)
+	if err != nil {
+		return 0, ErrSyntaxError
+	}
+	modes := byte(m)
+	return modes, nil
+}
+
+func (c Computer) isBitSet(modes byte, bit byte) bool {
+	return modes&(1<<bit) == 1<<bit
 }
