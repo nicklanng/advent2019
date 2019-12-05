@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"strconv"
 )
 
 const (
@@ -46,7 +47,7 @@ func (c *Computer) Run() (err error) {
 	var cursor int
 	for {
 		opCode := c.memory[cursor] % 100
-		modes := c.memory[cursor] / 100
+		modes,_  := strconv.ParseUint(fmt.Sprintf("%d", c.memory[cursor] / 100), 2, 8)
 
 		switch opCode {
 		case ADD:
@@ -164,6 +165,6 @@ func (c *Computer) WritePosition(pos int, val int) {
 	c.memory[ptr] = val
 }
 
-func (c Computer) isBitSet(modes int, bit byte) bool {
+func (c Computer) isBitSet(modes uint64, bit byte) bool {
 	return modes&(1<<bit) == 1<<bit
 }
