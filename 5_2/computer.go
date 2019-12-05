@@ -4,111 +4,77 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
-	"strconv"
-	"strings"
 )
 
 const (
-	ADD = "01"
-	MUL = "02"
-	RIN = "03"
-	PRN = "04"
-	JIT = "05"
-	JIF = "06"
-	LES = "07"
-	EQL = "08"
-	BRK = "99"
+	ADD = 1
+	MUL = 2
+	RIN = 3
+	PRN = 4
+	JIT = 5
+	JIF = 6
+	LES = 7
+	EQL = 8
+	BRK = 99
 )
 
 var (
-	ErrSyntaxError = errors.New("syntax error")
 	ErrInvalidInput = errors.New("invalid input")
 	ErrInvalidOpCode = errors.New("invalid opcode")
 )
 
 type Computer struct {
-	memory [1024]string
-	currentInstruction string
+	memory [1024]int
 }
 
-func (c *Computer) Load(program []string) {
+func (c *Computer) Load(program []int) {
 	copy(c.memory[:], program)
 }
 
 func (c *Computer) Run() (err error) {
 	defer func() {
 		if err != nil {
-			fmt.Println(c.currentInstruction)
 			debug.PrintStack()
 			fmt.Println(c.memory)
 		}
 		if r := recover(); r != nil {
 			fmt.Println(r)
-			fmt.Println(c.currentInstruction)
 			debug.PrintStack()
 			fmt.Println(c.memory)
 		}
 	}()
 
 	var i int
+	var opLength int
 	for {
-		memLoc := c.PadMemory(c.memory[i], 2)
-		opCode := memLoc[len(memLoc)-2:]
+		opCode := c.memory[i] % 100
+		modes := c.memory[i] / 100
 
 		switch opCode {
 		case ADD:
-			length := 4
-			c.currentInstruction = strings.Join(c.memory[i:i+length],",")
+			opLength = 4
 
-			modes, err := c.parseOperandModes(memLoc)
-			if err != nil {
-				return err
-			}
+			operand1 := c.ReadOperand(i+1, c.isBitSet(modes, 0))
+			operand2 := c.ReadOperand(i+2, c.isBitSet(modes, 1))
 
-			operand1, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
-			if err != nil {
-				return err
-			}
-			operand2, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
-			if err != nil {
-				return err
-			}
+			c.WritePosition(i+3, operand1 + operand2)
 
-			if err := c.WritePosition(i+3, fmt.Sprintf("%d", operand1+operand2)); err != nil {
-				return ErrSyntaxError
-			}
-
-			i += length
+			i += opLength
 			continue
 
 		case MUL:
-			length := 4
-			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+			opLength = 4
 
-			modes, err := c.parseOperandModes(memLoc)
-			if err != nil {
-				return err
-			}
+			operand1 := c.ReadOperand(i+1, c.isBitSet(modes, 0))
+			operand2 := c.ReadOperand(i+2, c.isBitSet(modes, 1))
 
-			operand1, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
-			if err != nil {
-				return err
-			}
-			operand2, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
-			if err != nil {
-				return err
-			}
+			c.WritePosition(i+3, operand1 * operand2)
 
-			if err := c.WritePosition(i+3, fmt.Sprintf("%d", operand1*operand2)); err != nil {
-				return ErrSyntaxError
-			}
-
-			i += length
+			i += opLength
 			continue
 
 		case RIN:
-			length := 2
-			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+			opLength = 2
 
 			fmt.Print("> ")
 
@@ -117,138 +83,73 @@ func (c *Computer) Run() (err error) {
 				return ErrInvalidInput
 			}
 
-			if err := c.WritePosition(i+1, fmt.Sprintf("%d", val)); err != nil {
-				return ErrSyntaxError
-			}
+			c.WritePosition(i+1,val)
 
-			i += length
+			i += opLength
 			continue
 
 		case PRN:
-			length := 2
-			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+			opLength = 2
 
-			val, err := c.ReadPosition(i + 1)
-			if err != nil {
-				return err
-			}
-			fmt.Println(val)
+			fmt.Println(c.ReadPosition(i + 1))
 
-			i += length
+			i += opLength
 			continue
 
 		case JIT:
-			length := 3
-			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+			opLength = 3
 
-			modes, err := c.parseOperandModes(memLoc)
-			if err != nil {
-				return err
-			}
+			operand1 := c.ReadOperand(i+1, c.isBitSet(modes, 0))
 
-			comp, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
-			if err != nil {
-				return err
-			}
-
-			if comp != 0 {
-				ptr, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
-				if err != nil {
-					return err
-				}
-				i = ptr
+			if operand1 != 0 {
+				i = c.ReadOperand(i+2, c.isBitSet(modes, 1))
 				continue
 			}
 
-			i += length
+			i += opLength
 			continue
 
 		case JIF:
-			length := 3
-			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+			opLength = 3
 
-			modes, err := c.parseOperandModes(memLoc)
-			if err != nil {
-				return err
-			}
+			operand1 := c.ReadOperand(i+1, c.isBitSet(modes, 0))
 
-			comp, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
-			if err != nil {
-				return err
-			}
-
-			if comp == 0 {
-				ptr, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
-				if err != nil {
-					return err
-				}
-				i = ptr
+			if operand1 == 0 {
+				i = c.ReadOperand(i+2, c.isBitSet(modes, 1))
 				continue
 			}
 
-			i += length
+			i += opLength
 			continue
 
 		case LES:
-			length := 4
-			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+			opLength = 4
 
-			modes, err := c.parseOperandModes(memLoc)
-			if err != nil {
-				return err
-			}
-
-			operand1, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
-			if err != nil {
-				return err
-			}
-			operand2, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
-			if err != nil {
-				return err
-			}
+			operand1 := c.ReadOperand(i+1, c.isBitSet(modes, 0))
+			operand2 := c.ReadOperand(i+2, c.isBitSet(modes, 1))
 
 			if operand1 < operand2 {
-				if err := c.WritePosition(i+3, "1"); err != nil {
-					return ErrSyntaxError
-				}
+				c.WritePosition(i+3, 1)
 			} else {
-				if err := c.WritePosition(i+3, "0"); err != nil {
-					return ErrSyntaxError
-				}
+				c.WritePosition(i+3, 0)
 			}
 
-			i += length
+			i += opLength
 			continue
 
 		case EQL:
-			length := 4
-			c.currentInstruction = strings.Join(c.memory[i:i+length], ",")
+			opLength = 4
 
-			modes, err := c.parseOperandModes(memLoc)
-			if err != nil {
-				return err
-			}
-
-			operand1, err := c.ReadOperand(i+1, c.isBitSet(modes, 0))
-			if err != nil {
-				return err
-			}
-			operand2, err := c.ReadOperand(i+2, c.isBitSet(modes, 1))
-			if err != nil {
-				return err
-			}
+			operand1 := c.ReadOperand(i+1, c.isBitSet(modes, 0))
+			operand2 := c.ReadOperand(i+2, c.isBitSet(modes, 1))
 
 			if operand1 == operand2 {
-				if err := c.WritePosition(i+3, "1"); err != nil {
-					return ErrSyntaxError
-				}
+				c.WritePosition(i+3, 1)
 			} else {
-				if err := c.WritePosition(i+3, "0"); err != nil {
-					return ErrSyntaxError
-				}
+				c.WritePosition(i+3, 0)
 			}
 
-			i += length
+			i += opLength
 			continue
 
 		case BRK:
@@ -260,67 +161,27 @@ func (c *Computer) Run() (err error) {
 	}
 }
 
-func (c *Computer) PadMemory(str string, l int) string {
-	if len(str) < l {
-		return strings.Repeat("0", l - len(str))+str
-	}
-	return str
-}
-
-func (c *Computer) ReadOperand(i int, immediate bool) (int, error) {
-	var (
-		val int
-		err error
-	)
-
+func (c *Computer) ReadOperand(i int, immediate bool) int {
 	if immediate{
-		val, err = c.ReadImmediate(i)
-	} else {
-		val, err = c.ReadPosition(i)
+		return c.ReadImmediate(i)
 	}
 
-	if err != nil {
-		return 0, ErrSyntaxError
-	}
-	return val, nil
-
+	return c.ReadPosition(i)
 }
 
-func (c *Computer) ReadImmediate(i int) (int, error) {
-	return strconv.Atoi(c.memory[i])
+func (c *Computer) ReadImmediate(i int) int {
+	return c.memory[i]
 }
 
-func (c *Computer) ReadPosition(i int) (int, error) {
-	ptr, err := strconv.Atoi(c.memory[i])
-	if err != nil {
-		return 0, err
-	}
-	return c.ReadImmediate(ptr)
+func (c *Computer) ReadPosition(i int) int {
+	return c.ReadImmediate(c.memory[i])
 }
 
-func (c *Computer) WritePosition(pos int, val string) error {
-	ptr, err := strconv.Atoi(c.memory[pos])
-	if err != nil {
-		return err
-	}
+func (c *Computer) WritePosition(pos int, val int) {
+	ptr := c.memory[pos]
 	c.memory[ptr] = val
-	return nil
 }
 
-func (c *Computer) parseOperandModes(memLoc string) (byte, error) {
-	subString := memLoc[:len(memLoc) - 2]
-	if len(subString) == 0 {
-		return 0, nil
-	}
-
-	m, err := strconv.ParseInt(subString, 2, 8)
-	if err != nil {
-		return 0, ErrSyntaxError
-	}
-	modes := byte(m)
-	return modes, nil
-}
-
-func (c Computer) isBitSet(modes byte, bit byte) bool {
-	return modes & (1<<bit) == 1<<bit
+func (c Computer) isBitSet(modes int, bit byte) bool {
+	return modes&(1<<bit) == 1<<bit
 }

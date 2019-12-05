@@ -3,6 +3,7 @@ package main
 import (
 	"io/ioutil"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -12,7 +13,15 @@ func main() {
 		log.Fatalf("failed to load input: %v\n", err)
 	}
 
-	program := strings.Split(string(b), ",")
+	text := strings.Split(string(b), ",")
+	program := make([]int, len(text))
+	for i := range text{
+		val, err := strconv.Atoi(text[i])
+		if err != nil {
+			panic(err)
+		}
+		program[i] =val
+	}
 
 	computer := &Computer{}
 	computer.Load(program)
