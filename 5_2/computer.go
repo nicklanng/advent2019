@@ -13,6 +13,10 @@ const (
 	MUL = 2
 	RIN = 3
 	PRN = 4
+	JIT = 5
+	JIF = 6
+	LES = 7
+	EQL = 8
 	BRK = 99
 
 	Position  = '0'
@@ -55,15 +59,16 @@ func (c *Computer) Run() error {
 
 		switch opCode {
 		case ADD:
-			c.currentInstruction = strings.Join(c.memory[i:i+4],",")
+			length := 4
+			c.currentInstruction = strings.Join(c.memory[i:i+length],",")
 
-			modes := c.PadMemory(memLoc[:len(memLoc)-2], 3)
+			modes := c.PadMemory(memLoc[:len(memLoc)-2], length-1)
 
-			operand1, err := c.ReadOperand(i+1, modes[2])
+			operand1, err := c.ReadOperand(i+1, modes[length-1-1])
 			if err != nil {
 				return err
 			}
-			operand2, err := c.ReadOperand(i+2, modes[1])
+			operand2, err := c.ReadOperand(i+2, modes[length-1-2])
 			if err != nil {
 				return err
 			}
@@ -72,19 +77,20 @@ func (c *Computer) Run() error {
 				return ErrSyntaxError
 			}
 
-			i += 4
+			i += length
 			continue
 
 		case MUL:
-			c.currentInstruction = strings.Join(c.memory[i:i+4],",")
+			length := 4
+			c.currentInstruction = strings.Join(c.memory[i:i+length],",")
 
-			modes := c.PadMemory(memLoc[:len(memLoc)-2], 3)
+			modes := c.PadMemory(memLoc[:len(memLoc)-2], length-1)
 
-			operand1, err := c.ReadOperand(i+1, modes[2])
+			operand1, err := c.ReadOperand(i+1, modes[length-1-1])
 			if err != nil {
 				return err
 			}
-			operand2, err := c.ReadOperand(i+2, modes[1])
+			operand2, err := c.ReadOperand(i+2, modes[length-1-2])
 			if err != nil {
 				return err
 			}
@@ -93,11 +99,12 @@ func (c *Computer) Run() error {
 				return ErrSyntaxError
 			}
 
-			i += 4
+			i += length
 			continue
 
 		case RIN:
-			c.currentInstruction = strings.Join(c.memory[i:i+2],",")
+			length := 2
+			c.currentInstruction = strings.Join(c.memory[i:i+length],",")
 
 			fmt.Print("> ")
 
@@ -106,15 +113,16 @@ func (c *Computer) Run() error {
 				return ErrInvalidInput
 			}
 
-			if err := c.WritePosition(i+3, fmt.Sprintf("%d", val)); err != nil {
+			if err := c.WritePosition(i+1, fmt.Sprintf("%d", val)); err != nil {
 				return ErrSyntaxError
 			}
 
-			i += 2
+			i += length
 			continue
 
 		case PRN:
-			c.currentInstruction = strings.Join(c.memory[i:i+2],",")
+			length := 2
+			c.currentInstruction = strings.Join(c.memory[i:i+length],",")
 
 			val, err := c.ReadPosition(i+1)
 			if err != nil {
@@ -122,7 +130,109 @@ func (c *Computer) Run() error {
 			}
 			fmt.Println(val)
 
-			i += 2
+			i += length
+			continue
+
+		case JIT:
+			length := 3
+			c.currentInstruction = strings.Join(c.memory[i:i+length],",")
+
+			modes := c.PadMemory(memLoc[:len(memLoc)-2], length-1)
+
+			comp, err := c.ReadOperand(i+1, modes[1])
+			if err != nil {
+				return err
+			}
+
+			if comp != 0 {
+				ptr, err := c.ReadOperand(i+2, modes[0])
+				if err != nil {
+					return err
+				}
+				i = ptr
+				continue
+			}
+
+			i += length
+			continue
+
+		case JIF:
+			length := 3
+			c.currentInstruction = strings.Join(c.memory[i:i+length],",")
+
+			modes := c.PadMemory(memLoc[:len(memLoc)-2], length-1)
+
+			comp, err := c.ReadOperand(i+1, modes[length-1-1])
+			if err != nil {
+				return err
+			}
+
+			if comp == 0 {
+				ptr, err := c.ReadOperand(i+2, modes[length-1-2])
+				if err != nil {
+					return err
+				}
+				i = ptr
+				continue
+			}
+
+			i += length
+			continue
+
+		case LES:
+			length := 4
+			c.currentInstruction = strings.Join(c.memory[i:i+length],",")
+
+			modes := c.PadMemory(memLoc[:len(memLoc)-2], length-1)
+
+			operand1, err := c.ReadOperand(i+1, modes[length-1-1])
+			if err != nil {
+				return err
+			}
+			operand2, err := c.ReadOperand(i+2, modes[length-1-2])
+			if err != nil {
+				return err
+			}
+
+			if operand1 < operand2 {
+				if err := c.WritePosition(i+3, "1"); err != nil {
+					return ErrSyntaxError
+				}
+			} else {
+				if err := c.WritePosition(i+3, "0"); err != nil {
+					return ErrSyntaxError
+				}
+			}
+
+			i += length
+			continue
+
+		case EQL:
+			length := 4
+			c.currentInstruction = strings.Join(c.memory[i:i+length],",")
+
+			modes := c.PadMemory(memLoc[:len(memLoc)-2], length-1)
+
+			operand1, err := c.ReadOperand(i+1, modes[length-1-1])
+			if err != nil {
+				return err
+			}
+			operand2, err := c.ReadOperand(i+2, modes[length-1-2])
+			if err != nil {
+				return err
+			}
+
+			if operand1 == operand2 {
+				if err := c.WritePosition(i+3, "1"); err != nil {
+					return ErrSyntaxError
+				}
+			} else {
+				if err := c.WritePosition(i+3, "0"); err != nil {
+					return ErrSyntaxError
+				}
+			}
+
+			i += length
 			continue
 
 		case BRK:
