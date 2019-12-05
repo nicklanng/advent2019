@@ -34,7 +34,6 @@ func (c *Computer) Load(program []int) {
 func (c *Computer) Run() (err error) {
 	defer func() {
 		if err != nil {
-			debug.PrintStack()
 			fmt.Println(c.memory)
 		}
 		if r := recover(); r != nil {
