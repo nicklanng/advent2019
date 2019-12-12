@@ -9,9 +9,9 @@ import (
 )
 
 type Vector3 struct {
-	X int16
-	Y int16
-	Z int16
+	X int
+	Y int
+	Z int
 }
 
 func (v Vector3) Add(v2 Vector3) Vector3 {
@@ -28,8 +28,10 @@ func main() {
 		log.Fatalf("failed to load Input: %v\n", err)
 	}
 
-	var vectors [8]Vector3
-	states := map[[8]Vector3]struct{}{}
+	var positions [4]Vector3
+	var velocities [4]Vector3
+
+	savedXStates := map[[8]int]int{}
 
 	lines := strings.Split(string(b), "\n")
 	for i, line := range lines {
@@ -41,55 +43,60 @@ func main() {
 		y, _ := strconv.Atoi(tokens[1][2:])
 		z, _ := strconv.Atoi(tokens[2][2:])
 
-		vectors[i] = Vector3{int16(x), int16(y), int16(z)}
+		positions[i] = Vector3{x, y, z}
 	}
 
-	fmt.Println(0, vectors)
-
-	for iteration := 0; ; iteration++ {
+	for iteration := 0; iteration < 186500; iteration++ {
 		for i := 0; i < 4; i++ {
 			for j := i + 1; j < 4; j++ {
-				iV := vectors[i]
-				jV := vectors[j]
+				iV := positions[i]
+				jV := positions[j]
 
 				if iV.X > jV.X {
-					vectors[i+4].X--
-					vectors[j+4].X++
+					velocities[i].X--
+					velocities[j].X++
 				} else if iV.X < jV.X {
-					vectors[i+4].X++
-					vectors[j+4].X--
+					velocities[i].X++
+					velocities[j].X--
 				}
 
 				if iV.Y > jV.Y {
-					vectors[i+4].Y--
-					vectors[j+4].Y++
+					velocities[i].Y--
+					velocities[j].Y++
 				} else if iV.Y < jV.Y {
-					vectors[i+4].Y++
-					vectors[j+4].Y--
+					velocities[i].Y++
+					velocities[j].Y--
 				}
 
 				if iV.Z > jV.Z {
-					vectors[i+4].Z--
-					vectors[j+4].Z++
+					velocities[i].Z--
+					velocities[j].Z++
 				} else if iV.Z < jV.Z {
-					vectors[i+4].Z++
-					vectors[j+4].Z--
+					velocities[i].Z++
+					velocities[j].Z--
 				}
 			}
 		}
 
 		for i := 0; i < 4; i++ {
-			vectors[i] = vectors[i].Add(vectors[i+4])
+			positions[i] = positions[i].Add(velocities[i])
 		}
 
-		// fmt.Println(iteration+1, vectors)
-
-		_, ok := states[vectors]
-		if ok {
-			fmt.Printf("Duplicate found in step %d\n", iteration)
-			break
+		xState := [8]int{positions[0].X, positions[1].X, positions[2].X, positions[3].X, velocities[0].X, velocities[1].X, velocities[2].X, velocities[3].X}
+		it, ok := savedXStates[xState]
+		if !ok {
+			savedXStates[xState] = iteration
 		} else {
-			states[vectors] = struct{}{}
+			fmt.Println(iteration+1, it, iteration-it)
 		}
 	}
+
+	/*
+		186028 231614 102356
+		1, 2, 4, 46507, 93014, 186028
+		1, 2, 115807, 231614
+		1, 2, 4, 25589, 51178, 102356
+	*/
+
+	fmt.Println(93014 * 51178 * 115807)
 }
