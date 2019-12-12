@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -10,9 +9,9 @@ import (
 )
 
 type Vector3 struct {
-	X int8
-	Y int8
-	Z int8
+	X int16
+	Y int16
+	Z int16
 }
 
 func (v Vector3) Add(v2 Vector3) Vector3 {
@@ -30,7 +29,7 @@ func main() {
 	}
 
 	var vectors [8]Vector3
-	states := map[[20]byte]struct{}{}
+	states := map[[8]Vector3]struct{}{}
 
 	lines := strings.Split(string(b), "\n")
 	for i, line := range lines {
@@ -42,8 +41,10 @@ func main() {
 		y, _ := strconv.Atoi(tokens[1][2:])
 		z, _ := strconv.Atoi(tokens[2][2:])
 
-		vectors[i*2] = Vector3{int8(x), int8(y), int8(z)}
+		vectors[i] = Vector3{int16(x), int16(y), int16(z)}
 	}
+
+	fmt.Println(0, vectors)
 
 	for iteration := 0; ; iteration++ {
 		for i := 0; i < 4; i++ {
@@ -81,13 +82,14 @@ func main() {
 			vectors[i] = vectors[i].Add(vectors[i+4])
 		}
 
-		state := sha1.Sum([]byte{byte(vectors[0].X), byte(vectors[0].Y), byte(vectors[0].Z), byte(vectors[1].X), byte(vectors[1].Y), byte(vectors[1].Z), byte(vectors[2].X), byte(vectors[2].Y), byte(vectors[2].Z), byte(vectors[3].X), byte(vectors[3].Y), byte(vectors[3].Z)})
-		_, ok := states[state]
+		// fmt.Println(iteration+1, vectors)
+
+		_, ok := states[vectors]
 		if ok {
 			fmt.Printf("Duplicate found in step %d\n", iteration)
 			break
 		} else {
-			states[state] = struct{}{}
+			states[vectors] = struct{}{}
 		}
 	}
 }
